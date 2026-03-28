@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        package:
+          - paycore-domain
+          - paycore-rabbitmq
+          - paycore-persistence
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Lint ${{ matrix.package }}
+        run: ruff check packages/${{ matrix.package }}/
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      matrix:
+        package:
+          - paycore-domain
+          - paycore-rabbitmq
+          - paycore-persistence
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          pip install -e packages/paycore-domain
+          if [ "${{ matrix.package }}" = "paycore-rabbitmq" ]; then
+            pip install -e packages/paycore-rabbitmq
+          fi
+          if [ "${{ matrix.package }}" = "paycore-persistence" ]; then
+            pip install -e packages/paycore-persistence
+          fi
+
+      - name: Run tests for ${{ matrix.package }}
+        run: |
+          if [ -d "packages/${{ matrix.package }}/tests" ]; then
+            pytest packages/${{ matrix.package }}/tests/ -v
+          else
+            echo "No tests found for ${{ matrix.package }}"
+          fi
